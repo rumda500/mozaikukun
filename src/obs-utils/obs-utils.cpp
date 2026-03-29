@@ -1,6 +1,7 @@
 #include "obs-utils.h"
 #include "plugin-support.h"
 
+#include <algorithm>
 #include <obs-module.h>
 
 /**
@@ -62,7 +63,8 @@ bool getRGBAFromStageSurface(filter_data *tf, uint32_t &width, uint32_t &height)
 	}
 	{
 		std::lock_guard<std::mutex> lock(tf->inputBGRALock);
-		tf->inputBGRA = cv::Mat(height, width, CV_8UC4, video_data, linesize);
+		cv::Mat wrapped(height, width, CV_8UC4, video_data, linesize);
+		wrapped.copyTo(tf->inputBGRA);
 	}
 	gs_stagesurface_unmap(tf->stagesurface);
 	return true;
@@ -82,7 +84,8 @@ gs_texture_t *blur_image(struct filter_data *tf, uint32_t width, uint32_t height
 	gs_eparam_t *yOffset = gs_effect_get_param_by_name(tf->kawaseBlurEffect, "yOffset");
 	gs_eparam_t *mask = gs_effect_get_param_by_name(tf->kawaseBlurEffect, "focalmask");
 
-	for (int i = 0; i < (int)tf->maskingBlurRadius; i++) {
+	const int blur_iters = std::min((int)tf->maskingBlurRadius, 30);
+	for (int i = 0; i < blur_iters; i++) {
 		gs_texrender_reset(tf->texrender);
 		if (!gs_texrender_begin(tf->texrender, width, height)) {
 			obs_log(LOG_INFO, "Could not open background blur texrender!");

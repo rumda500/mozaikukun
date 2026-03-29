@@ -20,6 +20,40 @@ Sort::Sort(size_t maxUnseenFrames_) : nextTrackID(0), maxUnseenFrames(maxUnseenF
 // Destructor
 Sort::~Sort() {}
 
+// Allocate the lowest available ID (0-9)
+uint64_t Sort::allocateID()
+{
+	for (uint64_t i = 0; i <= MAX_TRACK_ID; i++) {
+		if (usedIDs.find(i) == usedIDs.end()) {
+			usedIDs.insert(i);
+			return i;
+		}
+	}
+	// All 0-9 in use: evict the track with the most unseen frames
+	uint64_t evictId = 0;
+	uint64_t maxUnseen = 0;
+	for (const auto &obj : trackedObjects) {
+		if (obj.id <= MAX_TRACK_ID && obj.unseenFrames >= maxUnseen) {
+			maxUnseen = obj.unseenFrames;
+			evictId = obj.id;
+		}
+	}
+	// Remove the evicted track and reclaim the ID
+	trackedObjects.erase(
+		std::remove_if(trackedObjects.begin(), trackedObjects.end(),
+			       [evictId](const Object &o) { return o.id == evictId; }),
+		trackedObjects.end());
+	// ID stays in usedIDs — caller reuses the slot
+	return evictId;
+}
+
+// Release an ID back to the pool
+void Sort::releaseID(uint64_t id)
+{
+	if (id <= MAX_TRACK_ID)
+		usedIDs.erase(id);
+}
+
 // Initialize the Kalman filter for a new object
 void Sort::initializeKalmanFilter(cv::KalmanFilter &kf, const cv::Rect_<float> &bbox)
 {
@@ -111,6 +145,8 @@ std::vector<Object> Sort::update(const std::vector<Object> &detections)
 			// Remove lost tracks
 			if (trackedObjects[i].unseenFrames < this->maxUnseenFrames) {
 				newTrackedObjects.push_back(trackedObjects[i]);
+			} else {
+				releaseID(trackedObjects[i].id);
 			}
 		}
 		trackedObjects = newTrackedObjects;
@@ -124,7 +160,7 @@ std::vector<Object> Sort::update(const std::vector<Object> &detections)
 			initializeKalmanFilter(kf, detection.rect);
 			trackedObjects.push_back(detection);
 			trackedObjects.back().kf = kf; // store the Kalman filter in the object
-			trackedObjects.back().id = nextTrackID++;
+			trackedObjects.back().id = allocateID();
 			trackedObjects.back().unseenFrames = 0;
 		}
 		return trackedObjects;
@@ -184,7 +220,7 @@ std::vector<Object> Sort::update(const std::vector<Object> &detections)
 			initializeKalmanFilter(kf, detections[j].rect);
 			trackedObjects.push_back(detections[j]);
 			trackedObjects.back().kf = kf; // store the Kalman filter in the object
-			trackedObjects.back().id = nextTrackID++;
+			trackedObjects.back().id = allocateID();
 			trackedObjects.back().unseenFrames = 0;
 			// resize trackedObjectUsed to match the new size of trackedObjects
 			trackedObjectUsed.resize(trackedObjects.size(), true);
@@ -201,6 +237,8 @@ std::vector<Object> Sort::update(const std::vector<Object> &detections)
 			if (!trackedObjectUsed[i]) {
 				newTrackedObjects.back().unseenFrames++;
 			}
+		} else {
+			releaseID(trackedObjects[i].id);
 		}
 	}
 	trackedObjects = newTrackedObjects;

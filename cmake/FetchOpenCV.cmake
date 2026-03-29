@@ -71,6 +71,7 @@ if(MSVC)
     INTERFACE ${opencv_SOURCE_DIR}/x64/vc17/staticlib/opencv_imgproc490.lib
               ${opencv_SOURCE_DIR}/x64/vc17/staticlib/opencv_core490.lib
               ${opencv_SOURCE_DIR}/x64/vc17/staticlib/opencv_video490.lib
+              ${opencv_SOURCE_DIR}/x64/vc17/staticlib/opencv_imgcodecs490.lib
               ${opencv_SOURCE_DIR}/x64/vc17/staticlib/zlib.lib)
   target_include_directories(OpenCV SYSTEM INTERFACE ${opencv_SOURCE_DIR}/include)
 else()

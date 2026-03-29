@@ -59,7 +59,7 @@ static void draw_objects(cv::Mat bgr, const std::vector<Object> &objects,
 	for (size_t i = 0; i < objects.size(); i++) {
 		const Object &obj = objects[i];
 
-		int color_index = obj.label % 80;
+		int color_index = obj.id % 80;
 		cv::Scalar color = cv::Scalar(color_list[color_index][0],
 					      color_list[color_index][1],
 					      color_list[color_index][2]);
@@ -94,11 +94,6 @@ static void draw_objects(cv::Mat bgr, const std::vector<Object> &objects,
 			      txt_bk_color, -1);
 
 		cv::putText(bgr, text, cv::Point(x, y + label_size.height),
-			    cv::FONT_HERSHEY_SIMPLEX, 0.4, txt_color, 1);
-
-		// write the id of the object
-		snprintf(text, sizeof(text), "ID: %d", (int)obj.id);
-		cv::putText(bgr, text, cv::Point(x, y + label_size.height + 15),
 			    cv::FONT_HERSHEY_SIMPLEX, 0.4, txt_color, 1);
 	}
 }

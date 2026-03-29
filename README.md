@@ -1,106 +1,57 @@
-# ⚠️ Stalled ⚠️ This project is not under active development
+# モザイク君 (Mozaikukun)
 
-## OBS Detect - Object Detection and Masking Filter
+OBS Studio 用リアルタイム顔/物体検出マスキングプラグイン。
 
-<div align="center">
+AIが自動で顔や物体を検出し、モザイク・ぼかし等のエフェクトをリアルタイムに適用します。
 
-[![GitHub](https://img.shields.io/github/license/occ-ai/obs-detect)](https://github.com/occ-ai/obs-detect/blob/main/LICENSE)
-[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/occ-ai/obs-detect/push.yaml)](https://github.com/occ-ai/obs-detect/actions/workflows/push.yaml)
-[![Total downloads](https://img.shields.io/github/downloads/occ-ai/obs-detect/total)](https://github.com/occ-ai/obs-detect/releases)
-[![GitHub release (latest by date)](https://img.shields.io/github/v/release/occ-ai/obs-detect)](https://github.com/occ-ai/obs-detect/releases)
-[![Discord](https://img.shields.io/discord/1200229425141252116)](https://discord.gg/KbjGU2vvUz)
+## 機能
 
-</div>
+- **顔検出** (YuNet) / **物体検出** (EdgeYOLO, COCO 80クラス)
+- **20+マスキングエフェクト**: ぼかし、ピクセレート、すりガラス、グリッチ、グレースケール、サーマル、セピア、ネガティブ、チェッカー柄、ストライプ柄、ドット柄、単色塗り、目隠しバー、画像スタンプ、OBSソースオーバーレイ、マスク出力、透過
+- **SORT追跡**: カルマンフィルタ + ハンガリアンアルゴリズムによる安定トラッキング
+- **マスク形状**: 矩形 / 楕円、反転 (背景マスク)、膨張調整
+- **クロップ**: 検出領域を限定
+- **ズーム/フォロー**: 検出対象を自動追跡
 
-A plugin for [OBS Studio](https://obsproject.com/) that allows you to detect many types of objects in any source, track them and apply masking.
+## 対応環境
 
-If you like this work, which is given to you completely free of charge, please consider supporting it by sponsoring us on GitHub:
+- Windows x64
+- OBS Studio 30.x 以降
+- GPU推論: DirectML (推奨) / CPU
 
-- https://github.com/sponsors/royshil
-- https://github.com/sponsors/umireon
+## インストール
 
-This work uses the great contributions from [EdgeYOLO-ROS](https://github.com/fateshelled/EdgeYOLO-ROS) and [PINTO-Model-Zoo](https://github.com/PINTO0309/PINTO_model_zoo). The Hungarian algorithm is taken from https://github.com/Gluttton/munkres-cpp under the GPLv2 license.
+1. [Releases](https://github.com/rumda500/mozaikukun/releases) からzipをダウンロード
+2. zipを展開
+3. 中の `obs-plugins` フォルダと `data` フォルダを OBS のインストールフォルダにコピー
+   - 通常: `C:\Program Files\obs-studio\`
+4. OBS を起動 → ソースのフィルターに「モザイク君」が追加される
 
-## Usage
+## 使い方
 
-<div align="center">
-<a href="https://youtu.be/LrbUrvaGreQ"><img width="40%" src="https://github.com/occ-ai/obs-detect/assets/441170/b8e7367e-c1b0-4c7e-b0df-af45ead87199" /></a>&nbsp;
-<a href="https://youtu.be/zmdq1bPVYs0"><img width="40%" src="https://github.com/occ-ai/obs-detect/assets/441170/2eb08589-1695-4a40-877e-4985c2b5270f" /></a>
-</div>
+1. ソース (映像キャプチャ等) を右クリック → フィルター
+2. 「+」→「モザイク君」を追加
+3. マスキングオプションでエフェクトを選択
+4. 必要に応じて Advanced Settings でモデルや閾値を調整
 
-- Add the "Detect" filter to any source with an image (Media, Browser, VLC, Image, etc.)
-- Enable "Masking" or "Tracking"
-
-Use Detect to track your pet, or blur out people in your video!
-
-More information and usage tutorials to follow soon.
-
-## Features
-
-Current features:
-
-- Detect over 80 categories of objects, using an efficient model ([EdgeYOLO](https://github.com/LSH9832/edgeyolo))
-- 3 Model sizes: Small, Medium and Large
-- Face detection model, fast and efficient ([YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet))
-- Load custom ONNX detection models from disk
-- Filter by: Minimal Detection confidence, Object category (e.g. only "Person"), Object Minimal Size
-- Masking: Blur, Pixelate, Solid color, Transparent, output binary mask (combine with other plugins!)
-- Tracking: Single object / Biggest / Oldest / All objects, Zoom factor, smooth transition
-- SORT algorithm for tracking smoothness and continuity
-- Save detections to file in real-time, for integrations e.g. with Streamer.bot
-
-Roadmap features:
-- Precise object mask, beyond bounding box
-- Multiple object category selection (e.g. Dog + Cat + Duck)
-- Make available detection information for other plugins through settings
-
-## Train and use a custom detection model
-
-Follow the instructions in [docs/train_model.md](docs/train_model.md) to train and use your own custom model.
-
-## Building
-
-The plugin was built and tested on Mac OSX  (Intel & Apple silicon), Windows and Linux.
-
-Start by cloning this repo to a directory of your choice.
-
-### Mac OSX
-
-Using the CI pipeline scripts, locally you would just call the zsh script. By default this builds a universal binary for both Intel and Apple Silicon. To build for a specific architecture please see `.github/scripts/.build.zsh` for the `-arch` options.
-
-```sh
-$ ./.github/scripts/build-macos -c Release
-```
-
-#### Install
-The above script should succeed and the plugin files (e.g. `obs-ocr.plugin`) will reside in the `./release/Release` folder off of the root. Copy the `.plugin` file to the OBS directory e.g. `~/Library/Application Support/obs-studio/plugins`.
-
-To get `.pkg` installer file, run for example
-```sh
-$ ./.github/scripts/package-macos -c Release
-```
-(Note that maybe the outputs will be in the `Release` folder and not the `install` folder like `pakage-macos` expects, so you will need to rename the folder from `build_x86_64/Release` to `build_x86_64/install`)
-
-### Linux (Ubuntu)
-
-Use the CI scripts again
-```sh
-$ ./.github/scripts/build-linux.sh
-```
-
-Copy the results to the standard OBS folders on Ubuntu
-```sh
-$ sudo cp -R release/RelWithDebInfo/lib/* /usr/lib/x86_64-linux-gnu/
-$ sudo cp -R release/RelWithDebInfo/share/* /usr/share/
-```
-Note: The official [OBS plugins guide](https://obsproject.com/kb/plugins-guide) recommends adding plugins to the `~/.config/obs-studio/plugins` folder.
-
-### Windows
-
-Use the CI scripts again, for example:
+## ビルド
 
 ```powershell
-> .github/scripts/Build-Windows.ps1 -Target x64
+# Windows x64
+cmake -B build_x64 -DCMAKE_BUILD_TYPE=RelWithDebInfo
+cmake --build build_x64 --config RelWithDebInfo
 ```
 
-The build should exist in the `./release` folder off the root. You can manually install the files in the OBS directory.
+## ライセンス
+
+GPL-2.0 (GNU General Public License v2.0)
+
+本プラグインは [obs-detect](https://github.com/locaal-ai/obs-detect) (by locaal-ai / Roy Shilkrot) をベースに開発されています。
+
+## クレジット
+
+- [obs-detect](https://github.com/locaal-ai/obs-detect) — 元プロジェクト (GPL-2.0)
+- [YuNet](https://github.com/ShiqiYu/libfacedetection) — 顔検出モデル
+- [EdgeYOLO](https://github.com/LSH9832/edgeyolo) — 物体検出モデル
+- [ONNX Runtime](https://github.com/microsoft/onnxruntime) — 推論エンジン
+- [munkres-cpp](https://github.com/Gluttton/munkres-cpp) — ハンガリアンアルゴリズム (GPL-2.0)

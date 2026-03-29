@@ -1,0 +1,132 @@
+uniform float4x4 ViewProj;
+uniform texture2d image;
+uniform texture2d focalmask;
+
+uniform float4 color  = {0.0, 0.0, 0.0, 1.0};
+uniform float4 color2 = {1.0, 1.0, 1.0, 1.0};
+uniform float2 tex_size;
+uniform float pattern_size; // size in pixels
+
+sampler_state textureSampler {
+	Filter    = Linear;
+	AddressU  = Clamp;
+	AddressV  = Clamp;
+};
+
+struct VertDataIn {
+	float4 pos : POSITION;
+	float2 uv  : TEXCOORD0;
+};
+
+struct VertDataOut {
+	float4 pos : POSITION;
+	float2 uv  : TEXCOORD0;
+};
+
+VertDataOut VSDefault(VertDataOut v_in)
+{
+	VertDataOut vert_out;
+	vert_out.pos = mul(float4(v_in.pos.xyz, 1.0), ViewProj);
+	vert_out.uv  = v_in.uv;
+	return vert_out;
+}
+
+/**
+ * Checker pattern: alternating color and color2 squares in masked areas.
+ */
+float4 PSCheckerPattern(VertDataOut v_in) : TARGET
+{
+	if (focalmask.Sample(textureSampler, v_in.uv).r == 0) {
+		return image.Sample(textureSampler, v_in.uv);
+	}
+
+	float2 pixelUV = v_in.uv * tex_size;
+	float checker = fmod(floor(pixelUV.x / pattern_size) + floor(pixelUV.y / pattern_size), 2.0);
+	return lerp(color.bgra, color2.bgra, checker);
+}
+
+/**
+ * Stripe pattern: alternating vertical stripes of color and color2 in masked areas.
+ */
+float4 PSStripePattern(VertDataOut v_in) : TARGET
+{
+	if (focalmask.Sample(textureSampler, v_in.uv).r == 0) {
+		return image.Sample(textureSampler, v_in.uv);
+	}
+
+	float2 pixelUV = v_in.uv * tex_size;
+	float stripe = fmod(floor(pixelUV.x / pattern_size), 2.0);
+	return lerp(color.bgra, color2.bgra, stripe);
+}
+
+technique DrawChecker
+{
+	pass
+	{
+		vertex_shader = VSDefault(v_in);
+		pixel_shader  = PSCheckerPattern(v_in);
+	}
+}
+
+technique DrawStripe
+{
+	pass
+	{
+		vertex_shader = VSDefault(v_in);
+		pixel_shader  = PSStripePattern(v_in);
+	}
+}
+
+/**
+ * Horizontal stripe pattern: alternating horizontal stripes in masked areas.
+ */
+float4 PSHStripePattern(VertDataOut v_in) : TARGET
+{
+	if (focalmask.Sample(textureSampler, v_in.uv).r == 0) {
+		return image.Sample(textureSampler, v_in.uv);
+	}
+
+	float2 pixelUV = v_in.uv * tex_size;
+	float stripe = fmod(floor(pixelUV.y / pattern_size), 2.0);
+	return lerp(color.bgra, color2.bgra, stripe);
+}
+
+/**
+ * Dot pattern: circular dots in a grid in masked areas.
+ */
+float4 PSDotPattern(VertDataOut v_in) : TARGET
+{
+	if (focalmask.Sample(textureSampler, v_in.uv).r == 0) {
+		return image.Sample(textureSampler, v_in.uv);
+	}
+
+	float2 pixelUV = v_in.uv * tex_size;
+	// Find position within current cell (0..pattern_size)
+	float2 cell = fmod(pixelUV, pattern_size);
+	// Squared distance from cell center (avoids sqrt)
+	float2 delta = cell - float2(pattern_size * 0.5, pattern_size * 0.5);
+	float dist_sq = dot(delta, delta);
+	float radius = pattern_size * 0.4;
+	if (dist_sq < radius * radius) {
+		return color.bgra;
+	}
+	return color2.bgra;
+}
+
+technique DrawHStripe
+{
+	pass
+	{
+		vertex_shader = VSDefault(v_in);
+		pixel_shader  = PSHStripePattern(v_in);
+	}
+}
+
+technique DrawDot
+{
+	pass
+	{
+		vertex_shader = VSDefault(v_in);
+		pixel_shader  = PSDotPattern(v_in);
+	}
+}

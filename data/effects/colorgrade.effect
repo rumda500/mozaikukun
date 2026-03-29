@@ -1,0 +1,121 @@
+uniform float4x4 ViewProj;
+uniform texture2d image;
+uniform texture2d focalmask;
+
+sampler_state textureSampler {
+	Filter    = Linear;
+	AddressU  = Clamp;
+	AddressV  = Clamp;
+};
+
+struct VertDataIn {
+	float4 pos : POSITION;
+	float2 uv  : TEXCOORD0;
+};
+
+struct VertDataOut {
+	float4 pos : POSITION;
+	float2 uv  : TEXCOORD0;
+};
+
+VertDataOut VSDefault(VertDataOut v_in)
+{
+	VertDataOut vert_out;
+	vert_out.pos = mul(float4(v_in.pos.xyz, 1.0), ViewProj);
+	vert_out.uv  = v_in.uv;
+	return vert_out;
+}
+
+/**
+ * Grayscale: luminance conversion
+ */
+float4 PSGrayscale(VertDataOut v_in) : TARGET
+{
+	float4 col = image.Sample(textureSampler, v_in.uv);
+	if (focalmask.Sample(textureSampler, v_in.uv).r == 0)
+		return col;
+	// BT.601 luminance (image is BGRA so col.r=B, col.g=G, col.b=R)
+	float lum = dot(col.rgb, float3(0.114, 0.587, 0.299));
+	return float4(lum, lum, lum, col.a);
+}
+
+/**
+ * Thermal: luminance mapped to heatmap (blue -> cyan -> green -> yellow -> red)
+ */
+float4 PSThermal(VertDataOut v_in) : TARGET
+{
+	float4 col = image.Sample(textureSampler, v_in.uv);
+	if (focalmask.Sample(textureSampler, v_in.uv).r == 0)
+		return col;
+	float lum = dot(col.rgb, float3(0.114, 0.587, 0.299));
+	// 4 segments: 0->0.25->0.5->0.75->1.0
+	float r = clamp(lum * 4.0 - 2.0, 0.0, 1.0);
+	float g = clamp(min(lum * 4.0, 3.0 - lum * 4.0), 0.0, 1.0);
+	float b = clamp(1.0 - lum * 4.0, 0.0, 1.0);
+	return float4(b, g, r, col.a); // BGRA order
+}
+
+/**
+ * Sepia: warm brownish tone
+ */
+float4 PSSepia(VertDataOut v_in) : TARGET
+{
+	float4 col = image.Sample(textureSampler, v_in.uv);
+	if (focalmask.Sample(textureSampler, v_in.uv).r == 0)
+		return col;
+	// col is BGRA: col.r=B, col.g=G, col.b=R
+	float r_in = col.b;
+	float g_in = col.g;
+	float b_in = col.r;
+	float r_out = min(r_in * 0.393 + g_in * 0.769 + b_in * 0.189, 1.0);
+	float g_out = min(r_in * 0.349 + g_in * 0.686 + b_in * 0.168, 1.0);
+	float b_out = min(r_in * 0.272 + g_in * 0.534 + b_in * 0.131, 1.0);
+	return float4(b_out, g_out, r_out, col.a);
+}
+
+/**
+ * Negative: invert colors
+ */
+float4 PSNegative(VertDataOut v_in) : TARGET
+{
+	float4 col = image.Sample(textureSampler, v_in.uv);
+	if (focalmask.Sample(textureSampler, v_in.uv).r == 0)
+		return col;
+	return float4(1.0 - col.r, 1.0 - col.g, 1.0 - col.b, col.a);
+}
+
+technique DrawGrayscale
+{
+	pass
+	{
+		vertex_shader = VSDefault(v_in);
+		pixel_shader  = PSGrayscale(v_in);
+	}
+}
+
+technique DrawThermal
+{
+	pass
+	{
+		vertex_shader = VSDefault(v_in);
+		pixel_shader  = PSThermal(v_in);
+	}
+}
+
+technique DrawSepia
+{
+	pass
+	{
+		vertex_shader = VSDefault(v_in);
+		pixel_shader  = PSSepia(v_in);
+	}
+}
+
+technique DrawNegative
+{
+	pass
+	{
+		vertex_shader = VSDefault(v_in);
+		pixel_shader  = PSNegative(v_in);
+	}
+}

@@ -4,6 +4,7 @@
 #include <opencv2/core.hpp>
 #include <opencv2/video/tracking.hpp>
 #include <vector>
+#include <set>
 
 #include "ort-model/types.hpp"
 
@@ -40,6 +41,10 @@ private:
 	std::vector<Object> trackedObjects;
 	uint64_t nextTrackID;
 	size_t maxUnseenFrames;
+	static const uint64_t MAX_TRACK_ID = 9;
+	std::set<uint64_t> usedIDs;
+	uint64_t allocateID();
+	void releaseID(uint64_t id);
 };
 
 #endif

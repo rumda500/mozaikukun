@@ -1,0 +1,73 @@
+uniform float4x4 ViewProj;
+uniform texture2d image;
+uniform texture2d focalmask;
+uniform float time;
+uniform float intensity;
+uniform float2 tex_size;
+
+sampler_state textureSampler {
+	Filter    = Linear;
+	AddressU  = Clamp;
+	AddressV  = Clamp;
+};
+
+struct VertDataIn {
+	float4 pos : POSITION;
+	float2 uv  : TEXCOORD0;
+};
+
+struct VertDataOut {
+	float4 pos : POSITION;
+	float2 uv  : TEXCOORD0;
+};
+
+VertDataOut VSDefault(VertDataOut v_in)
+{
+	VertDataOut vert_out;
+	vert_out.pos = mul(float4(v_in.pos.xyz, 1.0), ViewProj);
+	vert_out.uv  = v_in.uv;
+	return vert_out;
+}
+
+/**
+ * Glitch: horizontal scanline shift + RGB channel split + block noise
+ */
+float4 PSGlitch(VertDataOut v_in) : TARGET
+{
+	if (focalmask.Sample(textureSampler, v_in.uv).r == 0)
+		return image.Sample(textureSampler, v_in.uv);
+
+	float2 uv = v_in.uv;
+	float2 px = uv * tex_size;
+
+	// 水平走査線ズレ (行ごとにランダムなオフセット)
+	float rowSeed = floor(px.y / 4.0) * 43758.5453 + time * 7.3;
+	float noise = frac(sin(rowSeed) * 43758.5453);
+	float shift = (noise - 0.5) * intensity * 0.05;
+
+	// RGBチャンネル分離
+	float r = image.Sample(textureSampler, float2(uv.x + shift, uv.y)).r;
+	float g = image.Sample(textureSampler, uv).g;
+	float b = image.Sample(textureSampler, float2(uv.x - shift * 0.5, uv.y)).b;
+
+	// ランダムブロックノイズ (低頻度)
+	float blockSeed = floor(px.x / 32.0) * 127.1 + floor(px.y / 32.0) * 311.7 + time * 3.1;
+	float blockNoise = frac(sin(blockSeed) * 43758.5);
+	float threshold = 0.95 * (1.0 - intensity * 0.5);
+	if (blockNoise > threshold) {
+		r = blockNoise;
+		g = blockNoise * 0.3;
+		b = blockNoise * 0.8;
+	}
+
+	return float4(r, g, b, 1.0);
+}
+
+technique Draw
+{
+	pass
+	{
+		vertex_shader = VSDefault(v_in);
+		pixel_shader  = PSGlitch(v_in);
+	}
+}
